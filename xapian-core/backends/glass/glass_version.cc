@@ -153,6 +153,7 @@ GlassVersion::read()
 	if (!root[table_no].unserialise(&p, end)) {
 	    throw Xapian::DatabaseCorruptError("Rev file root_info missing");
 	}
+        root[table_no].set_offset(offset);
 	old_root[table_no] = root[table_no];
     }
 

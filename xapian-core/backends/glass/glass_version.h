@@ -40,6 +40,7 @@ class RootInfo {
     bool sequential_mode;
     unsigned blocksize;
     std::string fl_serialised;
+    off_t offset;
 
   public:
     void init(unsigned blocksize_);
@@ -58,6 +59,7 @@ class RootInfo {
 	return blocksize;
     }
     const std::string & get_free_list() const { return fl_serialised; }
+    off_t get_offset() const { return offset; }
 
     void set_level(int level_) { level = unsigned(level_); }
     void set_num_entries(glass_tablesize_t n) { num_entries = n; }
@@ -69,6 +71,7 @@ class RootInfo {
 	blocksize = b;
     }
     void set_free_list(const std::string & s) { fl_serialised = s; }
+    void set_offset(off_t o) { offset = o; }
 };
 
 }

@@ -167,7 +167,7 @@ GlassTable::read_block(uint4 n, byte * p) const
 	GlassTable::throw_database_closed();
     AssertRel(n,<,free_list.get_first_unused_block());
 
-    io_read_block(handle, reinterpret_cast<char *>(p), block_size, n);
+    io_read_block(handle, reinterpret_cast<char *>(p), block_size, n, offset);
 
     if (GET_LEVEL(p) != LEVEL_FREELIST) {
 	int dir_end = DIR_END(p);
@@ -1789,6 +1789,7 @@ GlassTable::open(int flags_, const RootInfo & root_info,
     flags = flags_;
     block_size = root_info.get_blocksize();
     root = root_info.get_root();
+    offset = root_info.get_offset();
 
     if (!writable) {
 	do_open_to_read(&root_info, rev);

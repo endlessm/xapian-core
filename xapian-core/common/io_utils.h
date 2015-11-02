@@ -126,8 +126,8 @@ bool io_readahead_block(int fd, size_t n, off_t b);
 inline bool io_readahead_block(int, size_t, off_t) { return false; }
 #endif
 
-/// Read block b size n bytes into buffer p from file descriptor fd.
-void io_read_block(int fd, char * p, size_t n, off_t b);
+/// Read block b size n bytes into buffer p from file descriptor fd starting at a.
+void io_read_block(int fd, char * p, size_t n, off_t b, off_t a = 0);
 
 /// Write block b size n bytes from buffer p to file descriptor fd.
 void io_write_block(int fd, const char * p, size_t n, off_t b);

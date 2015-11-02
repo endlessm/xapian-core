@@ -176,9 +176,9 @@ io_readahead_block(int fd, size_t n, off_t b)
 #endif
 
 void
-io_read_block(int fd, char * p, size_t n, off_t b)
+io_read_block(int fd, char * p, size_t n, off_t b, off_t a)
 {
-    off_t o = b * n;
+    off_t o = b * n + a;
     // Prefer pread if available since it's typically implemented as a
     // separate syscall, and that eliminates the overhead of an extra syscall
     // per block read.
