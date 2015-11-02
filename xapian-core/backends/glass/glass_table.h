@@ -651,7 +651,7 @@ class GlassTable {
 	 */
 	int handle;
 
-        off_t offset;
+        off_t offset = 0;
 
 	/// number of levels, counting from 0
 	int level;

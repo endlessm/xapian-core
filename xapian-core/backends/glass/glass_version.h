@@ -40,7 +40,7 @@ class RootInfo {
     bool sequential_mode;
     unsigned blocksize;
     std::string fl_serialised;
-    off_t offset;
+    off_t offset = 0;
 
   public:
     void init(unsigned blocksize_);
