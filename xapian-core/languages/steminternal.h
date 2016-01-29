@@ -120,6 +120,8 @@ class SnowballStemImplementation : public StemImplementation {
     symbol * slice_to(symbol * v);
     symbol * assign_to(symbol * v);
 
+    int len_utf8(const symbol * v);
+
 #if 0
     void debug(int number, int line_count);
 #endif
