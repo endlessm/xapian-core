@@ -1253,12 +1253,12 @@ phrased_term:
 	    }
 
 	    // Check spelling, if we're a normal term, and any of the prefixes
-	    // are empty.
+	    // are empty or "S" (title).
 	    if ((flags & FLAG_SPELLING_CORRECTION) && !was_acronym) {
 		const list<string> & pfxes = field_info->prefixes;
 		list<string>::const_iterator pfx_it;
 		for (pfx_it = pfxes.begin(); pfx_it != pfxes.end(); ++pfx_it) {
-		    if (!pfx_it->empty())
+		    if (!pfx_it->empty() && *pfx_it != "S")
 			continue;
 		    const string & suggest = db.get_spelling_suggestion(term);
 		    if (!suggest.empty()) {

@@ -2000,6 +2000,98 @@ static const test test_mispelled_wildcard_queries[] = {
     { NULL, NULL }
 };
 
+static const test test_mispelled_prefix_queries[] = {
+    { "title:(doucment search)", "title:(document search)" },
+    { "title:doucment title:seeacrh", "title:document title:search" },
+    { "title:(docment seeacrh test)", "title:(document search test)" },
+    { "title:\"paragahp pineapple\"", "title:\"paragraph pineapple\"" },
+    { "title:\"paragahp pineapple\"", "title:\"paragraph pineapple\"" },
+    { "title:(test S.E.A.R.C.)", "" },
+    { "title:(this AND that)", "" },
+    { "title:documento", "title:document" },
+    { "title:documento-documento", "title:document-document" },
+    { "title:documento-searcho", "title:document-search" },
+    { "test title:saerch", "test title:search" },
+    { "title:paragraf search", "title:paragraph search" },
+    { NULL, NULL }
+};
+
+// Test spelling correction with a prefix.
+static bool test_qp_spell_prefix1()
+{
+    mkdir(".chert", 0755);
+    string dbdir = ".chert/qp_spell1";
+    Xapian::WritableDatabase db(dbdir, Xapian::DB_CREATE_OR_OVERWRITE);
+
+    Xapian::Document doc;
+    doc.add_term("Sdocument", 6);
+    doc.add_term("Ssearch", 7);
+    doc.add_term("Ssaerch", 1);
+    doc.add_term("Sparagraph", 8);
+    doc.add_term("Sparagraf", 2);
+    db.add_document(doc);
+
+    db.add_spelling("document");
+    db.add_spelling("search");
+    db.add_spelling("paragraph");
+    db.add_spelling("band");
+
+    Xapian::QueryParser qp;
+    qp.add_prefix("title", "S");
+    qp.set_stemming_strategy(Xapian::QueryParser::STEM_SOME);
+    qp.set_database(db);
+
+    for (const test *p = test_mispelled_queries; p->query; ++p) {
+	Xapian::Query q;
+	q = qp.parse_query(p->query,
+			   Xapian::QueryParser::FLAG_SPELLING_CORRECTION |
+			   Xapian::QueryParser::FLAG_BOOLEAN );
+	tout << "Query: " << p->query << endl;
+	TEST_STRINGS_EQUAL(qp.get_corrected_query_string(), p->expect);
+    }
+
+    return true;
+}
+
+// Test spelling correction with a prefix with multiple databases.
+static bool test_qp_spell_prefix2()
+{
+    mkdir(".chert", 0755);
+    string dbdir = ".chert/qp_spell2";
+    Xapian::WritableDatabase db1(dbdir, Xapian::DB_CREATE_OR_OVERWRITE);
+
+    db1.add_spelling("document");
+    db1.add_spelling("search");
+    db1.commit();
+
+    dbdir = ".chert/qp_spell2b";
+    Xapian::WritableDatabase db2(dbdir, Xapian::DB_CREATE_OR_OVERWRITE);
+
+    db2.add_spelling("document");
+    db2.add_spelling("paragraph");
+    db2.add_spelling("band");
+
+    Xapian::Database db;
+    db.add_database(db1);
+    db.add_database(db2);
+
+    Xapian::QueryParser qp;
+    qp.add_prefix("title", "S");
+    qp.set_stemming_strategy(Xapian::QueryParser::STEM_SOME);
+    qp.set_database(db);
+
+    for (const test *p = test_mispelled_queries; p->query; ++p) {
+	Xapian::Query q;
+	q = qp.parse_query(p->query,
+			   Xapian::QueryParser::FLAG_SPELLING_CORRECTION |
+			   Xapian::QueryParser::FLAG_BOOLEAN );
+	tout << "Query: " << p->query << endl;
+	TEST_STRINGS_EQUAL(qp.get_corrected_query_string(), p->expect);
+    }
+
+    return true;
+}
+
 // Test spelling correction in the QueryParser with wildcards.
 // Regression test for bug fixed in 1.1.3 and 1.0.17.
 static bool test_qp_spellwild1()
@@ -2063,6 +2155,45 @@ static bool test_qp_spellpartial1()
     db.add_spelling("band");
 
     Xapian::QueryParser qp;
+    qp.set_database(db);
+
+    for (const test *p = test_mispelled_partial_queries; p->query; ++p) {
+	Xapian::Query q;
+	q = qp.parse_query(p->query,
+			   Xapian::QueryParser::FLAG_SPELLING_CORRECTION |
+			   Xapian::QueryParser::FLAG_PARTIAL);
+	tout << "Query: " << p->query << endl;
+	TEST_STRINGS_EQUAL(qp.get_corrected_query_string(), p->expect);
+    }
+
+    return true;
+}
+
+static const test test_mispelled_prefix_partial_queries[] = {
+    { "title:doucment", "" },
+    { "title:doucment ", "title:document " },
+    { "title:documen", "" },
+    { "title:documen ", "title:document " },
+    { "title:seearch title:documen", "title:search title:documen" },
+    { "title:search title:documen", "" },
+    { NULL, NULL }
+};
+
+// Test spelling correction in the QueryParser with FLAG_PARTIAL.
+// Regression test for bug fixed in 1.1.3 and 1.0.17.
+static bool test_qp_spellpartial_prefix1()
+{
+    mkdir(".chert", 0755);
+    string dbdir = ".chert/qp_spellpartial1";
+    Xapian::WritableDatabase db(dbdir, Xapian::DB_CREATE_OR_OVERWRITE);
+
+    db.add_spelling("document");
+    db.add_spelling("search");
+    db.add_spelling("paragraph");
+    db.add_spelling("band");
+
+    Xapian::QueryParser qp;
+    qp.add_prefix("title", "S");
     qp.set_database(db);
 
     for (const test *p = test_mispelled_partial_queries; p->query; ++p) {
@@ -2727,8 +2858,11 @@ static const test_desc tests[] = {
     TESTCASE(qp_stoplist1),
     TESTCASE(qp_spell1),
     TESTCASE(qp_spell2),
+    TESTCASE(qp_spell_prefix1),
+    TESTCASE(qp_spell_prefix2),
     TESTCASE(qp_spellwild1),
     TESTCASE(qp_spellpartial1),
+    TESTCASE(qp_spellpartial_prefix1),
     TESTCASE(qp_synonym1),
     TESTCASE(qp_synonym2),
     TESTCASE(qp_synonym3),
