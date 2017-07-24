@@ -495,6 +495,9 @@ WritableDatabase::WritableDatabase(const std::string &path, int flags, int block
 	}
 	// Fall through to first enabled case, so order the remaining cases
 	// by preference.
+#if defined(__GNUC__) && (__GNUC__ >= 7)
+        __attribute__((fallthrough));
+#endif
 #ifdef XAPIAN_HAS_CHERT_BACKEND
 	case DB_BACKEND_CHERT:
 	    internal.push_back(new ChertWritableDatabase(path, flags, block_size));
