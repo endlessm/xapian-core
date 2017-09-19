@@ -1277,6 +1277,7 @@ dnl **************************
 
 AC_CONFIG_FILES([
  Makefile
+ tests/Makefile
  docs/Makefile
  docs/doxygen_api.conf
  docs/doxygen_source.conf

@@ -16,7 +16,8 @@ if VPATH_BUILD
 AM_CPPFLAGS += -I'$(top_builddir)/include'
 endif
 
-SUBDIRS = . docs
+# Order is relevant: when building, tests must be after ".".
+SUBDIRS = . docs tests
 
 noinst_HEADERS =
 BUILT_SOURCES =
@@ -28,6 +29,19 @@ bin_PROGRAMS =
 EXTRA_PROGRAMS =
 
 .PHONY: coverage-reconfigure coverage-reconfigure-maintainer-mode coverage-check
+
+# This relies on GNU make (for the pattern rule) but it's just a convenience
+# as you can run these check-* targets with any make using:
+#
+#   cd tests ; make check-FOO
+#
+# So the pain of maintaining a huge list of target forwarding rules here isn't
+# worth it.
+#
+# Note: We use @PERCENT@ here instead of a literal % to suppress an automake
+# portability warning.
+check-@PERCENT@:
+	cd tests && $(MAKE) $(AM_MAKEFLAGS) $@
 
 ## --disable-shared as shared builds fail for me on x86-64 Debian etch.
 ## CCACHE_DISABLE as ccache 2.4 doesn't handle the .gcno files.
