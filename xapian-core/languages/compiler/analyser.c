@@ -242,24 +242,58 @@ static void check_name_type(struct analyser * a, struct name * p, int type) {
 static void read_names(struct analyser * a, int type) {
     struct tokeniser * t = a->tokeniser;
     if (!get_token(a, c_bra)) return;
-    while (read_token(t) == c_name) {
-        if (look_for_name(a) != 0) error(a, e_redeclared); else {
-            NEW(name, p);
-            p->b = copy_b(t->b);
-            p->type = type;
-            p->mode = -1; /* routines, externals */
-            p->count = a->name_count[type];
-            p->referenced = false;
-            p->used = 0;
-            p->grouping = 0;
-            p->definition = 0;
-	    p->routine_called_from_among = false;
-            a->name_count[type] ++;
-            p->next = a->names;
-            a->names = p;
+    while (true) {
+        int token = read_token(t);
+        switch (token) {
+            case c_len: {
+                /* Context-sensitive token - once declared as a name, it loses
+                 * its special meaning, for compatibility with older versions
+                 * of snowball.
+                 */
+                static const symbol c_len_lit[] = {
+                    'l', 'e', 'n'
+                };
+                MOVE_TO_B(t->b, c_len_lit);
+                goto handle_as_name;
+            }
+            case c_lenof: {
+                /* Context-sensitive token - once declared as a name, it loses
+                 * its special meaning, for compatibility with older versions
+                 * of snowball.
+                 */
+                static const symbol c_lenof_lit[] = {
+                    'l', 'e', 'n', 'o', 'f'
+                };
+                MOVE_TO_B(t->b, c_lenof_lit);
+                goto handle_as_name;
+            }
+            case c_name:
+handle_as_name:
+                if (look_for_name(a) != 0) error(a, e_redeclared); else {
+                    NEW(name, p);
+                    p->b = copy_b(t->b);
+                    p->type = type;
+                    p->mode = -1; /* routines, externals */
+                    p->count = a->name_count[type];
+                    p->referenced = false;
+                    p->used_in_among = false;
+                    p->used = 0;
+                    p->local_to = 0;
+                    p->grouping = 0;
+                    p->definition = 0;
+                    a->name_count[type] ++;
+                    p->next = a->names;
+                    a->names = p;
+                    if (token != c_name) {
+                        disable_token(t, token);
+                    }
+                }
+                break;
+            default:
+                if (!check_token(a, c_ket)) t->token_held = true;
+                return;
         }
     }
-    if (!check_token(a, c_ket)) t->token_held = true;
 }
 
 static symbol * new_literalstring(struct analyser * a) {
@@ -297,11 +331,23 @@ static int binding(int t) {
     }
 }
 
+static void mark_used_in(struct analyser * a, struct name * q, struct node * p) {
+    if (!q->used) {
+        q->used = p;
+        q->local_to = a->program_end->name;
+    } else if (q->local_to) {
+        if (q->local_to != a->program_end->name) {
+            /* Used in more than one routine/external. */
+            q->local_to = NULL;
+        }
+    }
+}
+
 static void name_to_node(struct analyser * a, struct node * p, int type) {
     struct name * q = find_name(a);
     if (q) {
         check_name_type(a, q, type);
-        if (!q->used) q->used = p;
+        mark_used_in(a, q, p);
     }
     p->name = q;
 }
@@ -325,8 +371,10 @@ static struct node * read_AE(struct analyser * a, int B) {
             break;
         case c_maxint:
         case c_minint:
+            a->int_limits_used = true;
         case c_cursor:
         case c_limit:
+        case c_len:
         case c_size:
             p = new_node(a, t->token);
             break;
@@ -334,8 +382,9 @@ static struct node * read_AE(struct analyser * a, int B) {
             p = new_node(a, c_number);
             p->number = t->number;
             break;
+        case c_lenof:
         case c_sizeof:
-            p = C_style(a, "s", c_sizeof);
+            p = C_style(a, "s", t->token);
             break;
         default:
             error(a, e_unexpected_token);
@@ -468,6 +517,7 @@ static void make_among(struct analyser * a, struct node * p, struct node * subst
     x->next = 0;
     x->b = v;
     x->number = a->among_count++;
+    x->function_count = 0;
     x->starter = 0;
 
     if (q->type == c_bra) { x->starter = q; q = q->right; }
@@ -480,10 +530,14 @@ static void make_among(struct analyser * a, struct node * p, struct node * subst
             w1->size = SIZE(b);  /* number of characters in string */
             w1->i = -1;          /* index of longest substring */
             w1->result = -1;     /* number of corresponding case expression */
-            w1->function = q->left == 0 ? 0 : q->left->name;
-            if (w1->function) {
-                check_routine_mode(a, w1->function, direction);
-		w1->function->routine_called_from_among = true;
+            if (q->left) {
+                struct name * function = q->left->name;
+                w1->function = function;
+                function->used_in_among = true;
+                check_routine_mode(a, function, direction);
+                x->function_count++;
+            } else {
+                w1->function = 0;
 	    }
             w1++;
         }
@@ -679,6 +733,7 @@ static struct node * read_C(struct analyser * a) {
                         p = new_node(a, read_AE_test(a));
                         p->AE = read_AE(a, 0); break;
                 }
+                if (q) mark_used_in(a, q, p);
                 p->name = q;
                 a->mode = mode;
                 a->modifyable = modifyable;
@@ -689,7 +744,7 @@ static struct node * read_C(struct analyser * a) {
                 struct name * q = find_name(a);
                 struct node * p = new_node(a, c_name);
                 if (q) {
-                    if (!q->used) q->used = p;
+                    mark_used_in(a, q, p);
                     switch (q->type) {
                         case t_boolean:
                             p->type = c_booltest; break;
@@ -938,6 +993,7 @@ extern struct analyser * create_analyser(struct tokeniser * t) {
     a->modifyable = true;
     { int i; for (i = 0; i < t_size; i++) a->name_count[i] = 0; }
     a->substring = 0;
+    a->int_limits_used = false;
     return a;
 }
 

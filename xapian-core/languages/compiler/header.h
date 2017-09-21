@@ -17,14 +17,17 @@ typedef unsigned short symbol;
 #define CAPACITY(p) ((int *)(p))[-2]
 
 extern symbol * create_b(int n);
-extern void report_b(FILE * out, symbol * p);
+extern void report_b(FILE * out, const symbol * p);
 extern void lose_b(symbol * p);
 extern symbol * increase_capacity(symbol * p, int n);
-extern symbol * move_to_b(symbol * p, int n, symbol * q);
-extern symbol * add_to_b(symbol * p, int n, symbol * q);
-extern symbol * copy_b(symbol * p);
-extern char * b_to_s(symbol * p);
+extern symbol * move_to_b(symbol * p, int n, const symbol * q);
+extern symbol * add_to_b(symbol * p, int n, const symbol * q);
+extern symbol * copy_b(const symbol * p);
+extern char * b_to_s(const symbol * p);
 extern symbol * add_s_to_b(symbol * p, const char * s);
+
+#define MOVE_TO_B(B, LIT) \
+    move_to_b(B, sizeof(LIT) / sizeof(LIT[0]), LIT)
 
 struct str; /* defined in space.c */
 
@@ -43,6 +46,7 @@ extern int str_len(struct str * str);
 extern int str_back(struct str *str);
 extern int get_utf8(const symbol * p, int * slot);
 extern int put_utf8(int ch, symbol * p);
+extern void output_str(FILE * outfile, struct str * str);
 
 struct m_pair {
 
@@ -70,6 +74,22 @@ struct include {
 
 };
 
+enum token_codes {
+
+#include "syswords2.h"
+
+    c_mathassign,
+    c_name,
+    c_number,
+    c_literalstring,
+    c_neg,
+    c_call,
+    c_grouping,
+    c_booltest,
+
+    NUM_TOKEN_CODES
+};
+
 /* struct input must be a prefix of struct tokeniser. */
 struct tokeniser {
 
@@ -95,27 +115,15 @@ struct tokeniser {
     int omission;
     struct include * includes;
 
+    char token_disabled[NUM_TOKEN_CODES];
 };
 
 extern symbol * get_input(symbol * p, char ** p_file);
 extern struct tokeniser * create_tokeniser(symbol * b, char * file);
 extern int read_token(struct tokeniser * t);
 extern const char * name_of_token(int code);
+extern void disable_token(struct tokeniser * t, int code);
 extern void close_tokeniser(struct tokeniser * t);
-
-enum token_codes {
-
-#include "syswords2.h"
-
-    c_mathassign,
-    c_name,
-    c_number,
-    c_literalstring,
-    c_neg,
-    c_call,
-    c_grouping,
-    c_booltest
-};
 
 extern int space_count;
 extern void * check_malloc(int n);
@@ -134,8 +142,9 @@ struct name {
     int among_func_count;       /* 1, 2, 3 for routines called by among */
     struct grouping * grouping; /* for grouping names */
     byte referenced;
+    byte used_in_among;         /* Function used in among? */
     struct node * used;         /* First use, or NULL if not used */
-    byte routine_called_from_among; /* used in routine definitions */
+    struct name * local_to;     /* Local to one routine/external */
 
 };
 
@@ -164,7 +173,7 @@ struct among {
     int number;               /* amongs are numbered 0, 1, 2 ... */
     int literalstring_count;  /* in this among */
     int command_count;        /* in this among */
-    int have_funcs;	      /* does this among have any funcs? */
+    int function_count;       /* in this among */
     struct node * starter;    /* i.e. among( (starter) 'string' ... ) */
     struct node * substring;  /* i.e. substring ... among ( ... ) */
 };
@@ -236,6 +245,7 @@ struct analyser {
     struct grouping * groupings_end;
     struct node * substring;  /* pending 'substring' in current routine definition */
     byte utf8;
+    byte int_limits_used;     /* are maxint or minint used? */
 };
 
 enum analyser_modes {
@@ -273,6 +283,7 @@ struct generator {
     int label_used;     /* Keep track of whether the failure label is used. */
     int failure_label;
     int debug_count;
+    int copy_from_count; /* count of calls to copy_from() */
 
     const char * S[10];  /* strings */
     symbol * B[10];      /* blocks */
@@ -302,15 +313,27 @@ struct options {
     const char * variables_prefix;
     const char * runtime_path;
     const char * parent_class_name;
+    const char * package;
+    const char * string_class;
+    const char * among_class;
     struct include * includes;
     struct include * includes_end;
     byte utf8;
 };
 
-/* Generator for C code. */
-extern struct generator * create_generator_c(struct analyser * a, struct options * o);
-extern void close_generator_c(struct generator * g);
+/* Generator functions common to several backends. */
 
+extern struct generator * create_generator(struct analyser * a, struct options * o);
+extern void close_generator(struct generator * g);
+
+extern void write_char(struct generator * g, int ch);
+extern void write_newline(struct generator * g);
+extern void write_string(struct generator * g, const char * s);
+extern void write_int(struct generator * g, int i);
+extern void write_b(struct generator * g, symbol * b);
+extern void write_str(struct generator * g, struct str * str);
+
+/* Generator for C code. */
 extern void generate_program_c(struct generator * g);
 
 #ifndef DISABLE_JAVA

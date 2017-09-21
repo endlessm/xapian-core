@@ -68,7 +68,7 @@ static void read_options(struct options * o, int argc, char * argv[]) {
     o->externals_prefix = "";
     o->variables_prefix = 0;
     o->runtime_path = 0;
-    o->parent_class_name = 0;
+    o->parent_class_name = DEFAULT_BASE_CLASS;
 #ifndef DISABLE_JAVA
     o->string_class = DEFAULT_STRING_CLASS;
     o->among_class = DEFAULT_AMONG_CLASS;
@@ -210,6 +210,7 @@ extern int main(int argc, char * argv[]) {
                     print_arglist();
                     exit(1);
                 }
+                g = create_generator(a, o);
                 if (o->make_lang == LANG_C || o->make_lang == LANG_CPLUSPLUS) {
                     symbol * b = add_s_to_b(0, s);
                     b = add_s_to_b(b, ".h");
@@ -221,9 +222,7 @@ extern int main(int argc, char * argv[]) {
                     o->output_src = get_output(b);
                     lose_b(b);
 
-                    g = create_generator_c(a, o);
                     generate_program_c(g);
-                    close_generator_c(g);
                     fclose(o->output_src);
                     fclose(o->output_h);
                 }
@@ -233,12 +232,11 @@ extern int main(int argc, char * argv[]) {
                     b = add_s_to_b(b, ".java");
                     o->output_src = get_output(b);
                     lose_b(b);
-                    g = create_generator_java(a, o);
                     generate_program_java(g);
-                    close_generator_java(g);
                     fclose(o->output_src);
                 }
 #endif
+                close_generator(g);
             }
             close_analyser(a);
         }
