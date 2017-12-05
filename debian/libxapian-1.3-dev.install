@@ -3,5 +3,6 @@ usr/include
 usr/lib/cmake/xapian/* usr/lib/cmake/xapian-1.3
 usr/lib/libxapian-1.3.la
 usr/lib/libxapian-1.3.so
+usr/lib/pkgconfig/xapian-core-1.3.pc
 usr/share/aclocal
 usr/share/man/man1/xapian-config-1.3.1
